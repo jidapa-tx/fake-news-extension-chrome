@@ -9,6 +9,7 @@ const SOURCE_TYPE_BADGE: Record<SourceType, { label: string; color: string }> = 
   FACT_CHECKER:  { label: 'Fact Check',  color: '#059669' },
   ACADEMIC:      { label: 'วิชาการ',     color: '#7C3AED' },
   GOV:           { label: 'หน่วยงาน',    color: '#475569' },
+  UNKNOWN:       { label: 'อื่นๆ',       color: '#94A3B8' },
 }
 
 const STANCE_CONFIG: Record<StanceType, { label: string; color: string; bg: string }> = {

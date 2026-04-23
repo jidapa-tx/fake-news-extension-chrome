@@ -1,6 +1,6 @@
 export type VerdictLevel = 'อันตราย' | 'น่าสงสัย' | 'ไม่แน่ใจ' | 'ค่อนข้างจริง' | 'ยืนยันแล้ว'
 export type StanceType = 'ยืนยัน' | 'คัดค้าน' | 'เป็นกลาง'
-export type SourceType = 'TRUSTED_MEDIA' | 'FACT_CHECKER' | 'ACADEMIC' | 'GOV'
+export type SourceType = 'TRUSTED_MEDIA' | 'FACT_CHECKER' | 'ACADEMIC' | 'GOV' | 'UNKNOWN'
 
 export interface Reference {
   id: string
