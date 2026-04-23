@@ -16,7 +16,17 @@ function sbsPickModeScript(): boolean {
     const tag = el.tagName.toLowerCase();
     if (tag === "img" || tag === "figure" || tag === "picture") return true;
     if (
-      !["p", "div", "article", "section", "blockquote", "li", "h1", "h2", "h3"].includes(tag)
+      ![
+        "p",
+        "div",
+        "article",
+        "section",
+        "blockquote",
+        "li",
+        "h1",
+        "h2",
+        "h3",
+      ].includes(tag)
     )
       return false;
     return (el.innerText?.trim().length ?? 0) >= 20;
@@ -66,16 +76,24 @@ function sbsPickModeScript(): boolean {
     e.stopPropagation();
 
     // Expand truncated content before extracting text
-    const twitterMore = t.querySelector<HTMLElement>('[data-testid="tweet-text-show-more-link"]');
+    const twitterMore = t.querySelector<HTMLElement>(
+      '[data-testid="tweet-text-show-more-link"]',
+    );
     if (twitterMore) {
       twitterMore.click();
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 400));
     } else {
-      const container = (t.closest('[data-ad-preview="message"]') as HTMLElement) ?? t;
-      for (const el of container.querySelectorAll<HTMLElement>('[role="button"], span, div')) {
-        if (el.childElementCount === 0 && el.innerText.trim() === 'ดูเพิ่มเติม') {
+      const container =
+        (t.closest('[data-ad-preview="message"]') as HTMLElement) ?? t;
+      for (const el of container.querySelectorAll<HTMLElement>(
+        '[role="button"], span, div',
+      )) {
+        if (
+          el.childElementCount === 0 &&
+          el.innerText.trim() === "ดูเพิ่มเติม"
+        ) {
           el.click();
-          await new Promise(r => setTimeout(r, 400));
+          await new Promise((r) => setTimeout(r, 400));
           break;
         }
       }
@@ -89,17 +107,23 @@ function sbsPickModeScript(): boolean {
         : t.querySelector("img");
     if (imgEl) {
       const src = imgEl.currentSrc || imgEl.src;
-      if (src && !src.startsWith("data:") && !src.startsWith("blob:")) imageUrl = src;
+      if (src && !src.startsWith("data:") && !src.startsWith("blob:"))
+        imageUrl = src;
     }
 
     // Text: alt text for pure images, innerText for everything else
-    const rawText = t.tagName.toLowerCase() === "img"
-      ? ((t as HTMLImageElement).alt?.trim() || "")
-      : (t.innerText?.trim() || "");
+    const rawText =
+      t.tagName.toLowerCase() === "img"
+        ? (t as HTMLImageElement).alt?.trim() || ""
+        : t.innerText?.trim() || "";
     const text = rawText.replace(/\n{2,}/g, "\n").slice(0, 5000) || "[รูปภาพ]";
 
     deactivate();
-    chrome.runtime.sendMessage({ type: "PICKED_TEXT", text, ...(imageUrl ? { imageUrl } : {}) });
+    chrome.runtime.sendMessage({
+      type: "PICKED_TEXT",
+      text,
+      ...(imageUrl ? { imageUrl } : {}),
+    });
 
     // Show on-page toast since popup can't auto-reopen reliably in MV3
     const toast = document.createElement("div");
@@ -161,7 +185,11 @@ interface Props {
   error: string | null;
   prefillText: string;
   onAnalyze: (query: string, imageUrl?: string, forceRefresh?: boolean) => void;
-  onAnalyzeImage: (file: File, caption?: string, forceRefresh?: boolean) => void;
+  onAnalyzeImage: (
+    file: File,
+    caption?: string,
+    forceRefresh?: boolean,
+  ) => void;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
 }
@@ -194,8 +222,8 @@ export function HomePage({
   useEffect(() => {
     if (tab !== "image") return;
     const handler = (e: ClipboardEvent) => {
-      const item = Array.from(e.clipboardData?.items ?? []).find(i =>
-        i.type.startsWith("image/")
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) =>
+        i.type.startsWith("image/"),
       );
       if (item) {
         const f = item.getAsFile();
@@ -297,7 +325,11 @@ export function HomePage({
                   : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
               }`}
             >
-              {t === "text" ? "📝 ข้อความ" : t === "url" ? "🔗 URL" : "🖼️ รูปภาพ"}
+              {t === "text"
+                ? "📝 ข้อความ"
+                : t === "url"
+                  ? "🔗 URL"
+                  : "🖼️ รูปภาพ"}
             </button>
           ))}
         </div>
@@ -375,7 +407,10 @@ export function HomePage({
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
                 onDragLeave={() => setIsDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -389,19 +424,15 @@ export function HomePage({
                     : "border-slate-300 dark:border-slate-600 hover:border-[#1E40AF] hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
-                <span className="text-2xl">🖼️</span>
+                <span className="text-2xl">📷</span>
                 <span className="text-sm text-slate-500 dark:text-slate-400 text-center px-4">
-                  คลิก / ลาก / วางรูปที่นี่
+                  คลิกหรือลากไฟล์รูปภาพมาวางที่นี่
+                </span>
+                <span className="text-xs text-slate-400 dark:text-slate-500 text-center px-4">
+                  รองรับ JPG, PNG, WEBP — ขนาดสูงสุด 10 MB
                 </span>
               </div>
             )}
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="คำบรรยายหรือบริบท (ไม่บังคับ)"
-              rows={2}
-              className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/30 focus:border-[#1E40AF] placeholder:text-slate-400 dark:bg-slate-800 dark:text-slate-100"
-            />
           </>
         )}
 
@@ -441,10 +472,18 @@ export function HomePage({
         {/* Analyze button */}
         <button
           onClick={handleSubmit}
-          disabled={isLoading || (tab === "image" ? !selectedFile : (!input.trim() && !pendingImageUrl))}
+          disabled={
+            isLoading ||
+            (tab === "image"
+              ? !selectedFile
+              : !input.trim() && !pendingImageUrl)
+          }
           aria-label="ตรวจสอบข่าว"
           className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-            isLoading || (tab === "image" ? !selectedFile : (!input.trim() && !pendingImageUrl))
+            isLoading ||
+            (tab === "image"
+              ? !selectedFile
+              : !input.trim() && !pendingImageUrl)
               ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
               : "bg-[#1E40AF] text-white hover:bg-blue-700 active:bg-blue-800 shadow-sm"
           }`}
@@ -480,7 +519,7 @@ export function HomePage({
         {/* Privacy notice */}
         <div className="mt-auto flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            🔒 ข้อมูลเก็บในเครื่องคุณเท่านั้น
+            🔒 ข้อมูลเก็บในเครื่องคุณเท่านั้น ไม่ส่งไป server
           </span>
         </div>
       </div>

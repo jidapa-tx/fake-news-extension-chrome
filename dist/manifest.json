@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.ts-BSTSjh9n.js"
+        "assets/index.ts-cIoNO6AA.js"
       ],
       "matches": [
         "*://*.facebook.com/*",
@@ -41,10 +41,7 @@
     "scripting"
   ],
   "host_permissions": [
-    "*://*.facebook.com/*",
-    "*://*.x.com/*",
-    "*://*.twitter.com/*",
-    "*://today.line.me/*"
+    "<all_urls>"
   ],
   "web_accessible_resources": [
     {
@@ -55,7 +52,7 @@
         "*://today.line.me/*"
       ],
       "resources": [
-        "assets/index.ts-BSTSjh9n.js"
+        "assets/index.ts-cIoNO6AA.js"
       ],
       "use_dynamic_url": false
     }

@@ -1,4 +1,5 @@
 import { analyzeText } from '../lib/api'
+import { storage } from '../lib/storage'
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[ชัวร์ก่อนแชร์] Extension installed')
@@ -41,7 +42,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === 'ANALYZE_BADGE') {
     analyzeText(msg.text)
-      .then(result => sendResponse({ ok: true, result }))
+      .then(async result => {
+        await storage.addHistory({
+          id: result.id,
+          query: msg.text.slice(0, 80),
+          verdict: result.verdict,
+          score: result.score,
+          checkedAt: result.analyzedAt,
+        })
+        sendResponse({ ok: true, result })
+      })
       .catch(() => sendResponse({ ok: false }))
     return true
   }

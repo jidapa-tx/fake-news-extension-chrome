@@ -60,7 +60,7 @@ export default function App() {
 
   const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
-  const handleAnalyze = async (query: string, imageUrl?: string, forceRefresh = false) => {
+  const handleAnalyze = async (query: string, imageUrl?: string, forceRefresh = false, saveHistory = true) => {
     setIsLoading(true)
     setError(null)
     try {
@@ -68,13 +68,15 @@ export default function App() {
         ? await analyzeContent(query, imageUrl)
         : await analyzeText(query, imageUrl, forceRefresh)
       setResult(res)
-      await storage.addHistory({
-        id: res.id,
-        query: query.slice(0, 80),
-        verdict: res.verdict,
-        score: res.score,
-        checkedAt: res.analyzedAt,
-      })
+      if (saveHistory) {
+        await storage.addHistory({
+          id: res.id,
+          query: query.slice(0, 80),
+          verdict: res.verdict,
+          score: res.score,
+          checkedAt: res.analyzedAt,
+        })
+      }
       setPage('result')
     } catch (err) {
       const code = (err as Error).message
@@ -143,7 +145,11 @@ export default function App() {
         />
       )}
       {page === 'history' && (
-        <HistoryPage onBack={() => setPage('home')} onRecheck={handleAnalyze} />
+        <HistoryPage
+          onBack={() => setPage('home')}
+          onView={query => handleAnalyze(query, undefined, false, false)}
+          onRecheck={handleAnalyze}
+        />
       )}
     </div>
   )
