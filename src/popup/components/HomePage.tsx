@@ -1,5 +1,5 @@
 // src/popup/components/HomePage.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Self-contained pick mode — injected into any tab via scripting.executeScript.
 // Must have zero external dependencies (no imports, no outer closures).
@@ -154,13 +154,14 @@ function sbsPickModeScript(): boolean {
   return true;
 }
 
-type Tab = "text" | "url";
+type Tab = "text" | "url" | "image";
 
 interface Props {
   isLoading: boolean;
   error: string | null;
   prefillText: string;
   onAnalyze: (query: string, imageUrl?: string, forceRefresh?: boolean) => void;
+  onAnalyzeImage: (file: File, caption?: string, forceRefresh?: boolean) => void;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
 }
@@ -170,6 +171,7 @@ export function HomePage({
   error,
   prefillText,
   onAnalyze,
+  onAnalyzeImage,
   onOpenSettings,
   onOpenHistory,
 }: Props) {
@@ -177,6 +179,10 @@ export function HomePage({
   const [input, setInput] = useState("");
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [caption, setCaption] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (prefillText) {
@@ -185,7 +191,27 @@ export function HomePage({
     }
   }, [prefillText]);
 
+  useEffect(() => {
+    if (tab !== "image") return;
+    const handler = (e: ClipboardEvent) => {
+      const item = Array.from(e.clipboardData?.items ?? []).find(i =>
+        i.type.startsWith("image/")
+      );
+      if (item) {
+        const f = item.getAsFile();
+        if (f) setSelectedFile(f);
+      }
+    };
+    document.addEventListener("paste", handler);
+    return () => document.removeEventListener("paste", handler);
+  }, [tab]);
+
   const handleSubmit = () => {
+    if (tab === "image") {
+      if (!selectedFile) return;
+      onAnalyzeImage(selectedFile, caption || undefined);
+      return;
+    }
     const trimmed = input.trim();
     if (!trimmed && !pendingImageUrl) return;
     if (tab === "url" && !trimmed.match(/^https?:\/\/.+/)) return;
@@ -254,12 +280,16 @@ export function HomePage({
       <div className="flex flex-col flex-1 p-4 gap-3">
         {/* Tab selector */}
         <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-          {(["text", "url"] as Tab[]).map((t) => (
+          {(["text", "url", "image"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => {
                 setTab(t);
                 setInput("");
+                if (t !== "image") {
+                  setSelectedFile(null);
+                  setCaption("");
+                }
               }}
               className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 tab === t
@@ -267,7 +297,7 @@ export function HomePage({
                   : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
               }`}
             >
-              {t === "text" ? "📝 ข้อความ" : "🔗 URL"}
+              {t === "text" ? "📝 ข้อความ" : t === "url" ? "🔗 URL" : "🖼️ รูปภาพ"}
             </button>
           ))}
         </div>
@@ -291,7 +321,7 @@ export function HomePage({
         )}
 
         {/* Input area */}
-        {tab === "text" ? (
+        {tab === "text" && (
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -301,7 +331,9 @@ export function HomePage({
             aria-label="ข้อความที่ต้องการตรวจสอบ"
             className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/30 focus:border-[#1E40AF] placeholder:text-slate-400 dark:bg-slate-800 dark:text-slate-100"
           />
-        ) : (
+        )}
+
+        {tab === "url" && (
           <input
             type="url"
             value={input}
@@ -312,6 +344,67 @@ export function HomePage({
           />
         )}
 
+        {tab === "image" && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setSelectedFile(f);
+                e.target.value = "";
+              }}
+            />
+            {selectedFile ? (
+              <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600">
+                <img
+                  src={URL.createObjectURL(selectedFile)}
+                  alt="รูปภาพที่เลือก"
+                  className="w-full max-h-48 object-contain"
+                />
+                <button
+                  onClick={() => setSelectedFile(null)}
+                  aria-label="ลบรูปภาพ"
+                  className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs leading-none hover:bg-black/70"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const f = e.dataTransfer.files[0];
+                  if (f?.type.startsWith("image/")) setSelectedFile(f);
+                }}
+                className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed cursor-pointer min-h-[120px] transition-colors ${
+                  isDragOver
+                    ? "border-[#1E40AF] bg-blue-50 dark:bg-blue-950"
+                    : "border-slate-300 dark:border-slate-600 hover:border-[#1E40AF] hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              >
+                <span className="text-2xl">🖼️</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400 text-center px-4">
+                  คลิก / ลาก / วางรูปที่นี่
+                </span>
+              </div>
+            )}
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="คำบรรยายหรือบริบท (ไม่บังคับ)"
+              rows={2}
+              className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/30 focus:border-[#1E40AF] placeholder:text-slate-400 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </>
+        )}
+
         {/* Character count */}
         {tab === "text" && (
           <div className="text-right text-xs text-slate-400 -mt-2">
@@ -319,21 +412,23 @@ export function HomePage({
           </div>
         )}
 
-        {/* Pick mode button */}
-        <button
-          onClick={handlePickMode}
-          disabled={isLoading}
-          aria-label="เลือกข้อความบนหน้าเว็บ"
-          className="w-full py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-        >
-          ⊕ เลือกข้อความบนหน้า
-        </button>
-
-        {/* Pick error */}
-        {pickError && (
-          <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg px-3 py-2 text-xs text-orange-700 dark:text-orange-400">
-            {pickError}
-          </div>
+        {/* Pick mode button + error */}
+        {tab !== "image" && (
+          <>
+            <button
+              onClick={handlePickMode}
+              disabled={isLoading}
+              aria-label="เลือกข้อความบนหน้าเว็บ"
+              className="w-full py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            >
+              ⊕ เลือกข้อความบนหน้า
+            </button>
+            {pickError && (
+              <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg px-3 py-2 text-xs text-orange-700 dark:text-orange-400">
+                {pickError}
+              </div>
+            )}
+          </>
         )}
 
         {/* API error */}
@@ -346,10 +441,10 @@ export function HomePage({
         {/* Analyze button */}
         <button
           onClick={handleSubmit}
-          disabled={isLoading || (!input.trim() && !pendingImageUrl)}
+          disabled={isLoading || (tab === "image" ? !selectedFile : (!input.trim() && !pendingImageUrl))}
           aria-label="ตรวจสอบข่าว"
           className={`w-full py-3 rounded-lg font-semibold text-sm transition-all ${
-            isLoading || (!input.trim() && !pendingImageUrl)
+            isLoading || (tab === "image" ? !selectedFile : (!input.trim() && !pendingImageUrl))
               ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
               : "bg-[#1E40AF] text-white hover:bg-blue-700 active:bg-blue-800 shadow-sm"
           }`}
