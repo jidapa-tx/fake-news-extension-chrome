@@ -1,6 +1,6 @@
 // src/popup/App.tsx
 import { useState, useEffect } from 'react'
-import { analyzeText } from '../lib/api'
+import { analyzeText, analyzeImage } from '../lib/api'
 import { analyzeContent } from '../lib/mock-api'
 import { storage } from '../lib/storage'
 import type { AnalysisResult, SiteSettings } from '../lib/types'
@@ -84,6 +84,30 @@ export default function App() {
     }
   }
 
+  const handleAnalyzeImage = async (file: File, caption?: string, forceRefresh = false) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res: AnalysisResult = USE_MOCK
+        ? await analyzeContent(caption ?? file.name)
+        : await analyzeImage(file, caption, forceRefresh)
+      setResult(res)
+      await storage.addHistory({
+        id: res.id,
+        query: (caption ?? file.name).slice(0, 80),
+        verdict: res.verdict,
+        score: res.score,
+        checkedAt: res.analyzedAt,
+      })
+      setPage('result')
+    } catch (err) {
+      const code = (err as Error).message
+      setError(ERROR_MAP[code] ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSaveSettings = async (newSettings: SiteSettings) => {
     setSettings(newSettings)
     await storage.saveSettings(newSettings)
@@ -99,6 +123,7 @@ export default function App() {
           error={error}
           prefillText={prefillText ?? ''}
           onAnalyze={handleAnalyze}
+          onAnalyzeImage={handleAnalyzeImage}
           onOpenSettings={() => setPage('settings')}
           onOpenHistory={() => setPage('history')}
         />
