@@ -5,6 +5,20 @@ chrome.runtime.onInstalled.addListener(() => {
 })
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'FETCH_IMAGE') {
+    fetch(msg.url, { credentials: 'include' })
+      .then(r => {
+        if (!r.ok) { sendResponse({ error: 'network' }); return }
+        return r.blob().then(blob => new Promise<void>(resolve => {
+          const reader = new FileReader()
+          reader.onload = () => { sendResponse({ base64: reader.result as string }); resolve() }
+          reader.readAsDataURL(blob)
+        }))
+      })
+      .catch(() => sendResponse({ error: 'network' }))
+    return true
+  }
+
   if (msg.type === 'PICKED_TEXT') {
     const data: Record<string, string> = { sbs_pendingPickedText: msg.text }
     if (msg.imageUrl) data['sbs_pendingPickedImageUrl'] = msg.imageUrl

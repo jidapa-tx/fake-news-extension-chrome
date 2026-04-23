@@ -124,11 +124,20 @@ export async function analyzeText(query: string, imageUrl?: string, forceRefresh
   let result: AnalysisResult
 
   if (imageUrl) {
-    const imgRes = await fetch(imageUrl, { credentials: 'include' })
-    if (!imgRes.ok) throw new Error('network')
-    const blob = await imgRes.blob()
+    const base64: string = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type: 'FETCH_IMAGE', url: imageUrl }, (r) => {
+        if (chrome.runtime.lastError || r?.error) return reject(new Error('network'))
+        resolve(r.base64 as string)
+      })
+    })
+    const byteStr = atob(base64.split(',')[1])
+    const mimeMatch = base64.match(/data:([^;]+)/)
+    const mime = mimeMatch?.[1] ?? 'image/jpeg'
+    const arr = new Uint8Array(byteStr.length)
+    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i)
+    const blob = new Blob([arr], { type: mime })
     const filename = imageUrl.split('/').pop()?.split('?')[0] ?? 'image.jpg'
-    const file = new File([blob], filename, { type: blob.type || 'image/jpeg' })
+    const file = new File([blob], filename, { type: mime })
     const form = new FormData()
     form.append('image', file)
     if (query) form.append('caption', query)

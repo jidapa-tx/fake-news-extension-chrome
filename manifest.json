@@ -35,9 +35,6 @@
   ],
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
-    "*://*.facebook.com/*",
-    "*://*.x.com/*",
-    "*://*.twitter.com/*",
-    "*://today.line.me/*"
+    "<all_urls>"
   ]
 }
