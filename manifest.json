@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "ชัวร์ก่อนแชร์",
+  "short_name": "ชัวร์ก่อนแชร์",
+  "version": "0.1.0",
+  "description": "ตรวจสอบข่าวก่อนส่งต่อ เพราะข่าวปลอมแพร่เร็วกว่าที่คุณคิด",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    },
+    "default_title": "ชัวร์ก่อนแชร์"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.facebook.com/*",
+        "*://*.x.com/*",
+        "*://*.twitter.com/*",
+        "*://today.line.me/*"
+      ],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "*://*.facebook.com/*",
+    "*://*.x.com/*",
+    "*://*.twitter.com/*",
+    "*://today.line.me/*"
+  ]
+}
