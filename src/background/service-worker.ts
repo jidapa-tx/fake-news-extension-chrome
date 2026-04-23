@@ -1,4 +1,4 @@
-// src/background/service-worker.ts
+import { analyzeText } from '../lib/api'
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[ชัวร์ก่อนแชร์] Extension installed')
@@ -22,6 +22,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       chrome.action.openPopup().catch(() => {})
       sendResponse({ ok: true })
     })
+    return true
+  }
+
+  if (msg.type === 'ANALYZE_BADGE') {
+    analyzeText(msg.text)
+      .then(result => sendResponse({ ok: true, result }))
+      .catch(() => sendResponse({ ok: false }))
     return true
   }
 })
