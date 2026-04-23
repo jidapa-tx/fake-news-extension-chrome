@@ -3,6 +3,7 @@
 // All code wrapped in try/catch to prevent leaking errors to the host page.
 
 const BADGE_CLASS = 'sbs-badge'
+const BADGE_STYLE_ID = 'sbs-badge-styles'
 
 const SITE_KEY_MAP: Record<string, keyof { facebook: boolean; twitter: boolean; lineToday: boolean }> = {
   'facebook.com': 'facebook',
@@ -11,15 +12,63 @@ const SITE_KEY_MAP: Record<string, keyof { facebook: boolean; twitter: boolean; 
   'today.line.me': 'lineToday',
 }
 
-const MOCK_BADGES = [
-  { verdict: 'น่าสงสัย',   score: 32, color: '#EA580C', bg: '#FFF7ED', emoji: '🟠' },
-  { verdict: 'อันตราย',     score: 8,  color: '#DC2626', bg: '#FEF2F2', emoji: '🔴' },
-  { verdict: 'ยืนยันแล้ว', score: 92, color: '#059669', bg: '#F0FDF4', emoji: '✅' },
-  { verdict: 'ไม่แน่ใจ',   score: 51, color: '#CA8A04', bg: '#FEFCE8', emoji: '🟡' },
-]
+const VERDICT_STYLE: Record<string, { color: string; bg: string; emoji: string }> = {
+  'อันตราย':       { color: '#DC2626', bg: '#FEF2F2', emoji: '🔴' },
+  'น่าสงสัย':     { color: '#EA580C', bg: '#FFF7ED', emoji: '🟠' },
+  'ไม่แน่ใจ':     { color: '#CA8A04', bg: '#FEFCE8', emoji: '🟡' },
+  'ค่อนข้างจริง':  { color: '#16A34A', bg: '#F0FDF4', emoji: '🟢' },
+  'ยืนยันแล้ว':   { color: '#059669', bg: '#F0FDF4', emoji: '✅' },
+}
 
-function getRandomBadge() {
-  return MOCK_BADGES[Math.floor(Math.random() * MOCK_BADGES.length)]
+const BASE_BADGE_CSS = `display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;font-family:'IBM Plex Sans Thai',sans-serif;cursor:pointer;margin-top:4px;user-select:none;transition:opacity 0.2s;`
+
+let badgedCount = 0
+let cachedBadgeLimit = 3
+
+function injectBadgeStyles() {
+  if (document.getElementById(BADGE_STYLE_ID)) return
+  const style = document.createElement('style')
+  style.id = BADGE_STYLE_ID
+  style.textContent = `@keyframes sbs-spin { to { transform: rotate(360deg) } }`
+  document.head.appendChild(style)
+}
+
+function createSpinnerBadge(): HTMLElement {
+  const el = document.createElement('div')
+  el.className = BADGE_CLASS
+  el.style.cssText = BASE_BADGE_CSS + `color:#64748B;background:#F8FAFC;border:1px solid #CBD5E1;`
+  el.title = 'ชัวร์ก่อนแชร์ — กำลังตรวจสอบ'
+  el.innerHTML = `<span style="width:10px;height:10px;border:2px solid #CBD5E1;border-top-color:#1E40AF;border-radius:50%;animation:sbs-spin 0.8s linear infinite;display:inline-block;flex-shrink:0"></span> กำลังตรวจสอบ...`
+  return el
+}
+
+function updateBadgeResult(el: HTMLElement, verdict: string, score: number, resultId: string) {
+  const s = VERDICT_STYLE[verdict] ?? VERDICT_STYLE['ไม่แน่ใจ']
+  el.style.cssText = BASE_BADGE_CSS + `color:${s.color};background:${s.bg};border:1px solid ${s.color}40;`
+  el.title = 'ชัวร์ก่อนแชร์ — คลิกเพื่อดูผล'
+  el.innerHTML = `${s.emoji} ${verdict} (${score}%)`
+  el.addEventListener('click', e => {
+    try { e.stopPropagation(); chrome.runtime.sendMessage({ type: 'OPEN_POPUP_WITH_RESULT', resultId }) }
+    catch { /* ignore */ }
+  })
+}
+
+function updateBadgeError(el: HTMLElement) {
+  el.style.cssText = BASE_BADGE_CSS + `color:#94A3B8;background:#F8FAFC;border:1px solid #E2E8F0;`
+  el.title = 'ชัวร์ก่อนแชร์ — ตรวจสอบไม่ได้'
+  el.innerHTML = `⚠ ตรวจไม่ได้`
+}
+
+function requestAnalysis(el: HTMLElement, text: string) {
+  try {
+    chrome.runtime.sendMessage({ type: 'ANALYZE_BADGE', text }, response => {
+      try {
+        if (chrome.runtime.lastError || !response) { updateBadgeError(el); return }
+        if (response.ok) updateBadgeResult(el, response.result.verdict, response.result.score, response.result.id)
+        else updateBadgeError(el)
+      } catch { updateBadgeError(el) }
+    })
+  } catch { updateBadgeError(el) }
 }
 
 function currentSiteKey() {
@@ -27,71 +76,55 @@ function currentSiteKey() {
   return SITE_KEY_MAP[host] ?? null
 }
 
-function createBadge(resultId: string): HTMLElement {
-  const data = getRandomBadge()
-  const el = document.createElement('div')
-  el.className = BADGE_CLASS
-  el.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: 'IBM Plex Sans Thai', sans-serif;
-    color: ${data.color};
-    background: ${data.bg};
-    border: 1px solid ${data.color}40;
-    cursor: pointer;
-    margin-top: 4px;
-    user-select: none;
-    transition: opacity 0.2s;
-  `
-  el.title = 'ชัวร์ก่อนแชร์ — คลิกเพื่อดูผล'
-  el.innerHTML = `${data.emoji} ${data.verdict} (${data.score}%)`
-
-  el.addEventListener('click', e => {
-    try {
-      e.stopPropagation()
-      chrome.runtime.sendMessage({ type: 'OPEN_POPUP_WITH_RESULT', resultId })
-    } catch { /* ignore */ }
-  })
-
-  return el
+function injectBadge(el: HTMLElement, text: string) {
+  if (badgedCount >= cachedBadgeLimit) return
+  if (el.querySelector(`.${BADGE_CLASS}`)) return
+  injectBadgeStyles()
+  const badge = createSpinnerBadge()
+  el.appendChild(badge)
+  badgedCount++
+  requestAnalysis(badge, text.slice(0, 5000))
 }
 
 function injectBadges() {
+  if (badgedCount >= cachedBadgeLimit) return
+
   // X/Twitter
   document.querySelectorAll<HTMLElement>('[data-testid="tweetText"]').forEach(el => {
+    if (badgedCount >= cachedBadgeLimit) return
     if (el.querySelector(`.${BADGE_CLASS}`)) return
     const more = el.querySelector<HTMLElement>('[data-testid="tweet-text-show-more-link"]')
     if (more) { more.click(); return }
-    el.appendChild(createBadge(`mock-${el.dataset.testid}-${Date.now()}`))
+    const text = el.innerText?.trim()
+    if (!text || text.length < 30) return
+    injectBadge(el, text)
   })
 
   // Facebook
   document.querySelectorAll<HTMLElement>('[data-ad-preview="message"], [class*="userContent"]').forEach(el => {
+    if (badgedCount >= cachedBadgeLimit) return
     if (el.querySelector(`.${BADGE_CLASS}`)) return
     for (const c of el.querySelectorAll<HTMLElement>('[role="button"], span, div')) {
-      if (c.childElementCount === 0 && c.innerText.trim() === 'ดูเพิ่มเติม') {
-        c.click()
-        return
-      }
+      if (c.childElementCount === 0 && c.innerText.trim() === 'ดูเพิ่มเติม') { c.click(); return }
     }
-    el.appendChild(createBadge(`mock-fb-${Date.now()}`))
+    const text = el.innerText?.trim()
+    if (!text || text.length < 30) return
+    injectBadge(el, text)
   })
 
   // LINE Today
   document.querySelectorAll<HTMLElement>('article p').forEach(el => {
+    if (badgedCount >= cachedBadgeLimit) return
     if (el.querySelector(`.${BADGE_CLASS}`)) return
-    if (el.innerText.trim().length < 30) return
-    el.appendChild(createBadge(`mock-line-${Date.now()}`))
+    const text = el.innerText?.trim()
+    if (!text || text.length < 30) return
+    injectBadge(el, text)
   })
 }
 
 function removeAllBadges() {
   document.querySelectorAll(`.${BADGE_CLASS}`).forEach(el => el.remove())
+  badgedCount = 0
 }
 
 let observer: MutationObserver | null = null
@@ -117,6 +150,7 @@ try {
       const siteKey = currentSiteKey()
       const globalEnabled: boolean = settings?.enabled ?? true
       const siteEnabled: boolean = siteKey ? (settings?.sites?.[siteKey] ?? true) : false
+      cachedBadgeLimit = settings?.badgeLimit ?? 3
 
       if (globalEnabled && siteEnabled) {
         injectBadges()
@@ -130,6 +164,7 @@ try {
           const newSettings = changes['sbs_settings'].newValue
           const nowGlobal: boolean = newSettings?.enabled ?? true
           const nowSite: boolean = siteKey ? (newSettings?.sites?.[siteKey] ?? true) : false
+          cachedBadgeLimit = newSettings?.badgeLimit ?? 3
 
           if (nowGlobal && nowSite) {
             injectBadges()
