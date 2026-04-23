@@ -1,5 +1,6 @@
 // src/popup/components/HomePage.tsx
 import { useState, useEffect, useRef } from "react";
+import { Logo } from "./Logo";
 
 // Self-contained pick mode — injected into any tab via scripting.executeScript.
 // Must have zero external dependencies (no imports, no outer closures).
@@ -278,11 +279,9 @@ export function HomePage({
   return (
     <div className="flex flex-col flex-1 bg-white dark:bg-slate-900">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#1E40AF]">
+      <div className="flex items-center justify-between px-4 py-3 bg-blue-800">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-            <span className="text-[#1E40AF] text-xs font-bold">✓</span>
-          </div>
+          <Logo size={36} />
           <span className="text-white font-semibold text-sm">
             ชัวร์ก่อนแชร์
           </span>
