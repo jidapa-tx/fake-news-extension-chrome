@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function SettingsPage({ settings, onBack, onSave }: Props) {
-  const [local, setLocal] = useState<SiteSettings>(settings)
+  const [local, setLocal] = useState<SiteSettings>({ ...settings, badgeLimit: settings.badgeLimit ?? 3 })
   const [confirmClear, setConfirmClear] = useState(false)
 
   const clearAllData = async () => {
@@ -37,6 +37,15 @@ export function SettingsPage({ settings, onBack, onSave }: Props) {
     })
   }
 
+  const updateBadgeLimit = (limit: number) => {
+    const clamped = Math.min(20, Math.max(1, limit))
+    setLocal(prev => {
+      const updated = { ...prev, badgeLimit: clamped }
+      onSave(updated)
+      return updated
+    })
+  }
+
   return (
     <div className="flex flex-col flex-1 bg-white dark:bg-slate-900">
       <div className="flex items-center gap-2 px-4 py-3 bg-[#1E40AF]">
@@ -54,6 +63,31 @@ export function SettingsPage({ settings, onBack, onSave }: Props) {
             <p className="text-xs text-slate-400 dark:text-slate-500">เปิด/ปิดการตรวจสอบอัตโนมัติทั้งหมด</p>
           </div>
           <Toggle checked={local.enabled} onChange={toggleGlobal} />
+        </div>
+
+        {/* Badge limit stepper */}
+        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+          <div>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">จำนวนสูงสุดต่อหน้า</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Badge ที่ตรวจอัตโนมัติต่อ 1 หน้า</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => updateBadgeLimit((local.badgeLimit ?? 3) - 1)}
+              disabled={!local.enabled || (local.badgeLimit ?? 3) <= 1}
+              aria-label="ลดจำนวน"
+              className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold disabled:opacity-40 hover:bg-slate-300 dark:hover:bg-slate-600"
+            >−</button>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 w-4 text-center">
+              {local.badgeLimit ?? 3}
+            </span>
+            <button
+              onClick={() => updateBadgeLimit((local.badgeLimit ?? 3) + 1)}
+              disabled={!local.enabled || (local.badgeLimit ?? 3) >= 20}
+              aria-label="เพิ่มจำนวน"
+              className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold disabled:opacity-40 hover:bg-slate-300 dark:hover:bg-slate-600"
+            >+</button>
+          </div>
         </div>
 
         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 px-1 mt-1">ตรวจสอบอัตโนมัติบน</p>
