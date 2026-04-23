@@ -5,6 +5,7 @@ const HISTORY_KEY = "sbs_history";
 
 const DEFAULT_SETTINGS: SiteSettings = {
   enabled: true,
+  badgeLimit: 3,
   sites: { facebook: false, twitter: false, lineToday: false },
 };
 

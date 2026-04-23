@@ -30,6 +30,7 @@ export interface AnalysisResult {
 
 export interface SiteSettings {
   enabled: boolean
+  badgeLimit: number
   sites: {
     facebook: boolean
     twitter: boolean

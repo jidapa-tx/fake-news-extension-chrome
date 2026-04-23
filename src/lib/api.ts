@@ -124,13 +124,14 @@ export async function analyzeText(query: string, imageUrl?: string, forceRefresh
   let result: AnalysisResult
 
   if (imageUrl) {
-    const imgRes = await fetch(imageUrl)
+    const imgRes = await fetch(imageUrl, { credentials: 'include' })
     if (!imgRes.ok) throw new Error('network')
     const blob = await imgRes.blob()
     const filename = imageUrl.split('/').pop()?.split('?')[0] ?? 'image.jpg'
     const file = new File([blob], filename, { type: blob.type || 'image/jpeg' })
     const form = new FormData()
     form.append('image', file)
+    if (query) form.append('caption', query)
     const apiRes = await fetch(`${API_BASE_URL}/api/analyze/image`, {
       method: 'POST',
       body: form,
