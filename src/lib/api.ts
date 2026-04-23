@@ -161,3 +161,34 @@ export async function analyzeText(query: string, imageUrl?: string, forceRefresh
   await writeCache(key, result)
   return result
 }
+
+export async function analyzeImage(
+  file: File,
+  caption?: string,
+  forceRefresh = false
+): Promise<AnalysisResult> {
+  const hash = await sha256(`${file.name}\n${file.size}\n${file.lastModified}\n${caption ?? ''}`)
+  const key = cacheKey(hash)
+
+  if (!forceRefresh) {
+    const cached = await readCache(key)
+    if (cached) return cached
+  } else {
+    await deleteCache(key)
+  }
+
+  const form = new FormData()
+  form.append('image', file)
+  if (caption) form.append('caption', caption)
+
+  const apiRes = await fetch(`${API_BASE_URL}/api/analyze/image`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!apiRes.ok) throw new Error('server_error')
+
+  const objectUrl = URL.createObjectURL(file)
+  const result = mapImageResponse(await apiRes.json(), caption ?? file.name, objectUrl)
+  await writeCache(key, result)
+  return result
+}
